@@ -61,7 +61,7 @@ bool ClientHandler::handle(int event) {
                 readPointer += buffer.size();
             }
 
-            if ((!record->isFullyCached() && cachingInParallel) || buffer.empty()) {
+            if (buffer.empty()){
                 //std::cout << "asdasdas" << '\n';
                 //proxy->getCache()->unsubscribe(url, clientSocket);
                 proxy->deleteEvent(clientSocket, POLLOUT);
@@ -143,7 +143,7 @@ bool ClientHandler::initConnectionToDest(){
         return false;
     }*/
     //std::cout << url << '\n';
-    if (!proxy->getCache()->isCached(url) ) {
+    //if (!proxy->getCache()->isFullyCached(url) ) {
         if(!becomeFirstWriter()){
             return false;
         }
@@ -153,12 +153,12 @@ bool ClientHandler::initConnectionToDest(){
         }*/
         initialized = true;
         return true; // подключение к серверу, отправка запроса на него
-    } else{
+    /*} else{
         std::cout << "loaded from cache " << url << '\n';
         record = proxy->getCache()->subscribe(url, clientSocket);
         //proxy->addEvent(clientSocket, POLLOUT);
-    }
-    initialized = true;
+    }*/
+    //initialized = true;
 }
 
 //"GET http://lib.pushkinskijdom.ru/Default.aspx?tabid=2018 HTTP/1.1\r\nHost: lib.pushkinskijdom.ru\r\n
@@ -193,21 +193,28 @@ bool ClientHandler::receive() {
         if(!RequestParser()){       // перенести парсинг и создание record сюда для протокола 1.1
             return false;
         }
-        if (!initialized) {
-            if(!initConnectionToDest()){
+        if (!proxy->getCache()->isFullyCached(url) ) {
+            if (!initialized) {
+                if (!initConnectionToDest()) {
+                    return false;
+                }
+            } else {
+                writeToServer(request); // last
+            }
+            record = proxy->getCache()->addRecord(url);
+            if (record == nullptr) {
+                std::cerr << "Failed to allocate new cache record for " + url;
+                proxy->stopProxy();
                 return false;
             }
-        } else {
-            writeToServer(request); // last
+            server->setCacheRecord(record);
+            proxy->getCache()->subscribe(url, clientSocket);
+        }else{
+            std::cout << "loaded from cache " << url << '\n';
+            record = proxy->getCache()->subscribe(url, clientSocket);
+            initialized = true;
+            //proxy->addEvent(clientSocket, POLLOUT);
         }
-        record = proxy->getCache()->addRecord(url);
-        if (record == nullptr) {
-            std::cerr << "Failed to allocate new cache record for " + url;
-            proxy->stopProxy();
-            return false;
-        }
-        server->setCacheRecord(record);
-        proxy->getCache()->subscribe(url, clientSocket);
         readPointer=0;
         request.clear();
     }

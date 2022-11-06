@@ -14,6 +14,8 @@ class http_parser;
 
 class ClientHandler: public ConnectionHandler{
 public:
+    ~ClientHandler() override{proxy->getCache()->unsubscribe(url, clientSocket);};
+
     explicit ClientHandler(int socket, Proxy *proxy);
 
     static int connectToServer(const std::string& host);

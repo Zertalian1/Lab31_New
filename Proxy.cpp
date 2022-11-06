@@ -134,7 +134,8 @@ void Proxy::run() {
                         disconnectHandler(socket);
                         //std::cerr << "Proxy: Closed connection with : " << std::to_string(connections[i].fd) << '\n';
                         //std::cout<<"close connection" << std::endl;
-                        connections[i].revents = 0;
+                        //connections[i].revents = 0;
+                        i--;
                         continue;
                     }
 
