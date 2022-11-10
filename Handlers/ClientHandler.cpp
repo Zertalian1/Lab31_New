@@ -45,16 +45,18 @@ bool ClientHandler::handle(int event) {
             return false;
         }
 
-        if (!firstWriter && readPointer >= record->getDataSize() && !cachingInParallel) {
+        /*if (!firstWriter && readPointer >= record->getDataSize() && !cachingInParallel) {
             //std::cerr << "Caught up with the first writer. Now caching in parallel";
             //std::cout << "??" << '\n';
             cachingInParallel = true;
             return true;
-        }
+        }*/
         if (readPointer <= record->getDataSize()) {
             //std::cout << "proxy send data" << "\n";
+            //std::cout << "start read " << '\n';
             std::string buffer = record->read(readPointer, BUF_SIZE);
             ssize_t ret = send(clientSocket, buffer.data(), buffer.size(), 0);
+            //std::cout << "end read " << '\n';
             if (ret == -1) {
                 perror("send failed");
             } else {
@@ -134,6 +136,9 @@ bool ClientHandler::RequestParser(){
         return false;
     }
     host = getHost(request);
+    int place = host.find(':');
+    port = host.substr(place+1, host.size()-place-1);
+    host = host.substr(0,host.find(':'));
     url = getUrl(request);
     return true;
 }
@@ -266,24 +271,25 @@ void ClientHandler::setLastField(const char *at, size_t len) {
 }
 
 int ClientHandler::connectToServer(const std::string& host) {
-    /*struct addrinfo hints{0};
-    struct addrinfo *result, *rp;
+    /*struct addrinfo hints;
+    struct addrinfo* result, * rp;
     int sfd, s;
 
-    hints.ai_family = PF_INET;
+    // Alex: I moved assigning hints.ai_socktype after memset()
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    //hint.ai_protocol = AI_PASSIVE;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = IPPROTO_TCP;
+    //hints.ai_socktype = SOCK_STREAM;
+    s = getaddrinfo((host+'\0').c_str(), (port+'\0').c_str(), &hints, &result);
 
-    s = getaddrinfo(host.c_str(), nullptr, &hints, &result);
     if (s != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
         exit(EXIT_FAILURE);
     }
-    struct hostent *hostinfo = gethostbyname(host.data());
+    //struct hostent *hostinfo = gethostbyname(host.data());
     int point=0;
-    for(char* addr = (hostinfo->h_addr_list)[point];point < hostinfo->h_length; point++ ){
-        printf("%s", addr);
-    }
+
     for (rp = result; rp != nullptr; rp = rp->ai_next) {
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         std::cout << rp->ai_addr << '\n';
@@ -298,9 +304,34 @@ int ClientHandler::connectToServer(const std::string& host) {
         fprintf(stderr, "Could not connect\n");
         exit(EXIT_FAILURE);
     }
-    return sfd;
-*/
-    int serverSocket;
+    return sfd;*/
+
+    struct addrinfo hints, *res, *result;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = PF_UNSPEC;
+    hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags |= AI_CANONNAME;
+
+    int errcode = getaddrinfo((host+"\0").c_str(),(port+"\0").c_str(), &hints, &result);
+    if (errcode != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(errcode));
+        exit(EXIT_FAILURE);
+    }
+    res = result;
+    int fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+
+    while (res != nullptr) {
+        if (connect(fd, result->ai_addr, result->ai_addrlen) == 0) {
+            return fd;
+        }
+        res = res->ai_next;
+    }
+
+    fprintf(stderr, "Could not connect\n");
+    exit(EXIT_FAILURE);
+    /*int serverSocket;
     if ((serverSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         std::cerr << "Failed to open new socket";
         return -1;
@@ -323,8 +354,7 @@ int ClientHandler::connectToServer(const std::string& host) {
         close(serverSocket);
         return -1;
     }
-
-    return serverSocket;
+    return serverSocket;*/
 }
 
 void ClientHandler::resetLastField() {

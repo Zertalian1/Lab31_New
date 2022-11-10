@@ -47,6 +47,9 @@ bool ServerHandler::receive() {
     if (len == 0) {
         //std::cout << "Hi" << '\n';
         //std::cerr << "Server#" + std::to_string(serverSocket) + " done writing. Closing connection";
+        if(cacheRecord != nullptr && cacheRecord->getDataSize() == 0){
+            cacheRecord->setBroken();
+        }
         cacheRecord->setFullyCached();
         return false;
     }

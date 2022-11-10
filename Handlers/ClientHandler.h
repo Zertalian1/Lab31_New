@@ -18,7 +18,7 @@ public:
 
     explicit ClientHandler(int socket, Proxy *proxy);
 
-    static int connectToServer(const std::string& host);
+    int connectToServer(const std::string& host);
 
     bool handle(int event) override;
 
@@ -65,6 +65,7 @@ private:
     std::string prVersion = "1.0";
     std::string url;
     std::string host;
+    std::string port;
     ServerHandler *server;
     CacheRecord *record;
     size_t readPointer = 0;
